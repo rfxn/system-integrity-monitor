@@ -1,0 +1,5 @@
+/var/log/sim_log /usr/local/sim/logs/init_log {
+    missingok
+    postrotate
+    endscript
+}

@@ -1,0 +1,99 @@
+# SIM 3.0 [sim@r-fx.org]
+###
+# Copyright (C) 1999-2005, R-fx Networks <sim@r-fx.org>
+# Copyright (C) 2005, Ryan MacDonald <ryan@r-fx.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+###
+
+###
+# [ glob.sim ]
+###
+#
+# E-Mail addresses to dispatch event e-mails too
+EMAIL="root"
+
+# Subject of alert e-mails
+SUBJ="Status alert from $HOSTNAME"
+
+# Max e-mail events to dispatch per-day
+EVLIMIT="25"
+
+# Restart limit per/service; before set offline [count reset daily]
+RSTLIMIT="25"
+
+# Event alert delay; value in seconds between alert e-mails
+AEVG="240"
+#
+###
+
+###
+# [ sys.disk ]
+###
+#
+# Dispatch warning e-mail when a partition is n% in use
+DISK_WARN="85"
+
+# Force log rotate at disk warning level; FLR will only run once per 24-hour
+# period. [ 0 = disabled, 1 = enabled ]
+FLR="0"
+
+# Delete old log files at disk warning level, from a defined LOG_PATH; this
+# assumes a logrotate style system (e.g: /var/log/messages.1). Log files older
+# than defined ML_AGE are deleted from the LOG_PATH.
+# [ 0 = disabled, 1 = enabled ]
+DOL="0"
+ML_AGE="48"			# Max age of log files before deleted
+LOG_PATH="/var/log"     	# No trailing slash!
+#
+##
+
+###
+# [ sys.load ]
+###
+#
+# Read 5, 10 or 15 minute load average
+LOAD="5"
+
+# Load level for status warning
+LWARN="20"
+
+# Load level for status caution
+LCAUT="35"
+
+# Load level for status critical
+LCRIT="50"
+
+# Reboot the system at load critical
+# [ 0 = disabled, 1 = enabled ]
+LM_RST="0"
+#
+###
+
+###
+# [ sys.network ]
+###
+#
+# Network interface monitor list; white space seperated
+# {e.g: IF="eth0 eth1 vp0"}
+IF="eth0"
+#
+###
+
+###
+# Internal vars file
+CNFINT="$INSTALL_PATH/config/internals.conf"
+# Import internal vars file
+. $CNFINT

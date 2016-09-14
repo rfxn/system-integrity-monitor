@@ -1,0 +1,184 @@
+- 3.0:
+   [New] complete restructure/rewrite of sim - please see README file
+
+- 2.5-4:
+[Change] some files still referenced r-fx.net instead of r-fx.org
+[Change] cronjob function now uses INSTALL_PATH/tmp instead of /tmp
+   [New] added ewp lockfile check for 'global_domainop_lock'
+   [New] sleep delay/recheck routine to ftp/http for ewp enabled systems
+[Change] small code cleanups and script comment headers changed
+
+- 2.5-3:
+   [New] added LAXCHK config for setting strict or laxed service checking
+[Change] some changes to README documention
+[Change] cleanup tweaks to cronjob toggle switch '-j'
+[Change] some reminents of /tmp files cleaned up
+   [Fix] corrected setup script to fix issues with '-u' & new tmp path
+   [Fix] set update function to remove old version file after installation
+
+- 2.5-2:
+[Change] moved all temporary file creation under the base installation
+	 path to resolve race conditions in /tmp.
+[Change] auto-conf script now checks for mysql init script named either
+	 'mysql' or 'mysqld', instead of just the latter.
+
+- 2.5-1:
+[Change] forgot to change version # in autoconf and conf.sim, corrected
+   [Fix] pgsql module changed to ignore $INIT_ARG and use 'start' for INIT
+[Change] some install permissions altered for some information concerns
+[Change] moved more module work into functions
+
+- 2.5:
+   [New] added /tmp/mysql.sock function to recreat the symlink when broken
+[Change] made some fatal exit functions output to log file atop of stdout
+[Change] edited autoconf and conf.sim to conform with new MySQL features
+   [Fix] corrected version # check in update feature
+
+- 2.4:
+   [Fix] fixed issues with load monitor and dispatching mass amounts of alerts
+   [Fix] added $PATH variable into setup, autoconf and main sim scripts
+   [New] added feature to HTTP module to clear all Semaphore arrays
+         by the 'http user' upon service restart.
+[Tweaks] corrected variouse issues with network module, still flacky
+   [New] ability to enable/disable global messages upon load status warn/crit
+   [New] added feature to stop non-essential services at load status warn or crit
+   [New] added feature to renice processes at load status warn or crit
+[Change] load monitor feature - restart on critical ($ROC) changed to $RST_LM
+         and now has 3 values (false, crit, warn)
+   [Fix] fixed issues with HTTP module relating to similarities with ENSIM
+         processes.
+   [New] URL aware monitoring for HTTP -- to prevent apache lockups
+[Change] Reorganized service specific features in conf file -- edited autoconf
+         accordingly to meet the new conf setup.
+
+- 2.3:
+[Change] thought it more fitting to move alert.sim to status.sim
+   [New] made config var for status.sim file ($STGEN)
+   [Fix] corrected instances of load monitor witch still showed 1 minute load
+         average
+[Tweaks] some cleanups and tweaks to main SIM script
+   [Fix] fixed issue with webppliance module relating to bandwidth manager not
+         getting restarted when offline.
+ [Other] variouse other tweaks and cleanups
+
+- 2.2:
+   [Fix] fixed unix socket error from 'netstat' calls
+[Change] supressed init scripts from echoing their start/stop status to screen
+[Change] modified SIM cronjob to suppress and ignore runtime errors
+[Change] exported the generation of alerts to alert.sim
+[Change] modified setup script to auto setup cronjob
+[Change] modified setup/SIM script to backup /etc/crontab to 
+         /etc/crontab.bk.random#
+[Change] modified update feature to display more verbose errors
+[Change] modified autoconf script to autodetect select variables
+   [New] addition of cron and network modules
+[Change] default SIM output for '-c' option changed
+[Change] modified webppliance module with an integrated monitor for Ensim's
+         bandwidth manager
+[Change] modified load monitor to watch 5 minute load average
+[Change] integrated feature to watch for transmit timeout errors on $IF in 
+         network module.
+
+- 2.1:
+   [Fix] fixed mathmaticle errors with error tracking system
+[Change] small modifications to http.chk module
+   [New] added postgreSQL and webppliance modules
+[Change] modifications to autoconf & conf.sim
+[Tweaks] tweaks to setup script
+   [Fix] default setup permissions corrected
+[Tweaks] load module tweaked
+[Change] setup script changed to preserve conf.sim from previouse SIM
+         installations
+[Change] postgreSQL module modified to remove stale pid files.
+
+- 2.0:
+   [Fix] fixed major bug with cronjob feature that made it so SIM does not run
+         as it should every 5 minutes (only effects version 1.9)
+[Change] edited setup and autoconf script to conform with the new settings to
+         cronjob feature.
+
+- 1.9:
+[Change] default settings in conf file changed, modified autoconf to conform to
+         new conf file settings
+   [Fix] fixed errors in cronjob feature
+ [Other] variouse other tweaks and changes throughout SIM
+
+- 1.8:
+   [Fix] fixed issues in all .chk files
+   [Fix] corrected errors with autoupdate feature
+[Change] minor tweaks to cronjob feature
+[Change] modified sim status (-s) output
+[Change] additions to conf file -- modified autoconf to conform to new conf
+         file settings
+
+- 1.7:
+[Change] copied cronjob feature from installer script to main SIM script
+[Change] more modifications to README
+   [Fix] corrected the cleanup of temp files for the update and cronjob feature
+[Change] changed default output of setup and SIM scripts to be verbose
+
+- 1.6:
+[Change] modified setup script
+   [Fix] minor bugs/errors fixed in autoconf and http.chk
+   [New] added cronjob feature to installer script
+[Change] modified README to be a tad more friendly
+
+- 1.5:
+[Change] restructured alerts system, data files and chk modules
+[Change] almost a complete rewrite of the main SIM script
+[Change] restructured conf variables to be more logical
+   [New] added chk modules for SSH and MySQL
+[Change] new installation layout
+   [New] created auto-update feature
+   [New] created auto-config script
+ [Other] variouse other changes and fixes
+
+- 1.3:
+   [Fix] fixed problem with load monitor that can cause allot of alerts to get
+         generated
+   [New] added ROC value for load monitor to enable/disable reboots on
+         critical load
+[Change] added version history to README
+[Change] modified status output and other minor changes.
+
+- 1.2:
+   [New] load module, http log module
+[Change] completely redone conf file for easier configuration
+   [Fix] fixes to installer script and other minor changes.
+
+- 1.0:
+   [Fix] many minor fixes across all files to fix issues with mandrake
+[Change] modified SIM Output
+[Change] new installer script
+[Change] restructured alert emails and added to the README file.
+
+- 0.9:
+   [Fix] changes to alert system, conf file, and all .chk files to fix some
+         outstanding bugs
+   [Fix] Corrected division by zero error in main SIM script.
+
+- 0.8:
+   [New] created README and included copy of the GNU GPL witch sim is now
+         distrobuted under
+[Change] modified installer script to display GPL and README prior to install
+ [Other] numerouse other fixes, tweaks and changes
+
+- 0.7:
+   [Fix] fixed errors in alert emails
+   [New] DNS service check
+   [Fix] fixed errors with dns service check relating to HTTP module
+[Change] changes to conf file and replaced some static variables in sim with
+         dynamic ones configured through the conf.
+[Change] restrcutured layout of install path and package as a whole
+
+- 0.3:
+   [New] HTTP service check
+   [New] installer script that works ?
+
+- 0.2:
+   [New] made variables for most settings & added conf file to streamline the
+         customization of the script.
+
+- 0.1: 
+  [Orig] the original bare script with no features other than restarting proftp
+         when offline.

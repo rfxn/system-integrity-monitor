@@ -1,0 +1,209 @@
+NOTE: This document is not complete and some paragraphs may be incomplete
+
+SIM (System Integrity Monitor) version 3.0 [sim@r-fx.org]
+
+	Copyright (C) 1999-2005, R-fx Networks <sim@r-fx.org>
+	Copyright (C) 2005, Ryan MacDonald <ryan@r-fx.org>
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+-----------------------------------------------
+1 ................ Introduction
+1.1 .............. Features
+2 ................ Setup
+ 2.1 ............. Usage
+3 ................ Extended Configuration
+ 3.1 ............. Internal Functions
+4 ................ License
+5 ................ Support & Feedback
+----------------------------------------------
+
+1) Introduction
+SIM is a system and services monitor for `SysVinit` systems. It is designed to
+be intuitive and modular in nature, and to provide a clean and informative
+status system. 
+
+1.1) Features:
+- Preconfigured monitoring of 25+ common services
+- Preconfigured monitoring of 3 system facilities [load, disk space, network]
+- Auto restart ability for downed services
+- Checks against network sockets & process list to ensure services are online
+- URL Aware monitoring for web based services
+- Informative command line status display
+- Event tracking and alert system with detailed log output
+- Simple & Informative installation script
+- Documented internal functions for expansion of modules
+
+2) Setup
+Fetch the latest version of sim3 from the sim home page at:
+http://www.rfxnetworks.com/sim.php
+
+Current snapshot always available from below link:
+http://www.rfxnetworks.com/sim-current.tar.gz
+
+Then simply extract the tar.gz archive as appropriate, ideally non-root user:
+
+$ tar xvfz sim-current.tar.gz
+$ ls
+sim-3.0/
+$ cd sim-3.0/
+
+From this point once you have changed directory into the install package, the
+'setup' or 'install.sh' script can be run. The different file names have no 
+distinction, 'setup' is a symlink of 'install.sh' ('setup' remains in place for
+sim -u compat from 2.5.x vers).
+
+$ ./setup
+-i      Install
+-q      Quiet install
+-u      Uninstall
+
+In order to use any of the above options you will now be required to have root
+access; su to root or similar to gain a root shell. Then execute an appropriate
+option. 
+
+# ./setup -i
+Base path:              /usr/local/sim/
+Configuration file:     /usr/local/sim/config/conf.sim
+Configuration symlink:  /etc/conf.sim
+Module control file:    /usr/local/sim/config/mods.control
+Module control symlink: /etc/sim.mods
+Executable:             /usr/local/sim/sim
+Executable symlink:     /usr/local/sbin/sim
+
+Once sim3 has installed you will then be prompted with summary of path 
+locations; you should modify the conf.sim and mods.control (/etc/sim.mods)
+files to your desired preferences.
+
+Then execute the following command to add the sim3 cronjob:
+
+# sim -j on
+
+If you have or had a version previous to sim3 installed, you will be prompted
+to remove it cronjob from /etc/crontab file before continuing. The new sim3
+places cronjob within the /etc/cron.d/sim folder.
+
+2.1) Usage
+The usage of sim3 is very much like pervious versions and if you have not
+used sim before then you will still find it quite straight forward.
+
+The first task is to configure the sim3 main configuration file located at:
+/usr/local/sim/config/conf.sim
+
+You should edit your email address into appropriate alert option in conf.sim,
+as well as configure any other options for advanced modules such as disk
+space and load modules.
+
+Then it is required to configure module usage directly in the file located at:
+/usr/local/sim/config/mods.control
+or
+/etc/sim.mods (symlinked)
+
+This file is very easy to modify, simply go through it and set On or Off the
+respective modules you would like to use, obviously it would be a bad idea to
+enable modules that do not apply to your current environment.
+
+There-after executing the 'sim' command with no options will result in a 
+default -help being printed to the screen; displaying all accepted options.
+
+usage /usr/local/sbin/sim [OPTION]
+-s, --status           Standard operation; display status to stdout
+-q, --quiet            Standard operation; status supressed
+-l, --log              Display log file [sim_log]
+-j, --cron [on|off]    Toggle on or off cronjob
+-c, --clear            Clear stat files; reset events
+
+Using the 'sim -s' option will display a summary status of all services and any
+related events, note that this is not a passive status output and check/restart
+operations will be performed if a service is offline while running the '-s'
+option. If you would like passive status you should use the -l option to view
+the sim log file.
+
+The other options, -j or --cron option is used to toggle on or off the sim cron
+job, the -c or --clear option is used to reset all event counts, and the -q or
+--quiet option is to run standard checks but with no status output printed to
+the screen.
+
+There is a sim3 maintained log file that tracks status of all modules and
+internal sim3 operations, additionally there is a service init log that tracks
+the output from all init commands executed; these logs are located at:
+/usr/local/sim/logs/sim_log OR /var/log/sim_log
+/usr/local/sim/logs/init_log
+
+3) Extended Configuration
+All sim3 modules are stored under a central path located at:
+/usr/local/sim/modules/init
+/usr/local/sim/modules/system
+
+All advanced options such as socket and process check vars, urlaware checks
+and any conditional checks are all contained within service modules. For
+example if you run sshd on port 2828 you would need to edit the sshd.mod module
+as so to prevent sim3 from restarting it in a loop. To do this you would open
+the file /usr/local/sim/modules/init/sshd.mod and edit the socket_port var.
+
+These modules are all function based with some simple standards in place to
+ensure module sanity.
+
+a - all modules must declare the module version in the first line of the module,
+currently the only accepted string is as follows:
+#sim_modv3x
+
+b - all modules must declare a default state on the second line of the module,
+currently the only accepted string is as follows:
+#disable
+Or
+#enable
+
+c - all modules must end with the file name .mod
+
+So in recap all sim3 modules must contain as follows in the first 2 lines:
+#sim_modv3x
+#disable
+
+There-after one may add the module to the module insertion control list:
+/usr/local/sim/config/mods.control, in the format of:
+# [sys/init].module [on/off]
+init.newcheck on
+
+3.1) Internal Functions
+There is a number of functions that can be modified, examined or used as-is
+to develop additional sim3 modules to meet any needs you should have.
+
+These functions are not the most logical at this point and some have weird
+logic to there variable names and input styles but nonetheless they serve there
+purpose and are by far an improvement from the old sim2 which was much slower
+and allot less refined in a modular capacity. 
+
+In time we will further refine the sim3 functions, there naming and the usage
+logic there-in. Should you wish to become familiar with any sim3 functions
+you would be well advised to explore the following files:
+/usr/local/sim/internals/functions.sim
+/usr/local/sim/bin/sim
+/usr/local/sim/internals/alert.msg
+
+4) License
+SIM3 is developed and supported on a volunteer basis by Ryan MacDonald
+[ryan@r-fx.org]
+
+SIM3 (System Integrity Monitor version 3) is distributed under the GNU General
+Public License (GPL) without restrictions on usage or redistribution. The SIM3
+copyright statement, and GNU GPL, "COPYING.GPL" are included in the top-level
+directory of the distribution. Credit must be given for derivative works as
+required under GNU GPL.
+
+5) Support & Feedback
+If you require assistance with SIM or would like to provide feedback please
+send an email to: <sim@r-fx.org> and/or <ryan@r-fx.org>
+Or visit: http://www.r-fx.org/sim.php

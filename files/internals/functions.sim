@@ -1,0 +1,764 @@
+#
+# SIM 3.0 [sim@r-fx.org]
+###
+# Copyright (C) 1999-2005, R-fx Networks <sim@r-fx.org>
+# Copyright (C) 2005, Ryan MacDonald <ryan@r-fx.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+###
+#
+
+echo_out() {
+##
+# Output function [echo_out()], accepts 2 arguments
+# first argument is 'string', second is operation type.
+# e.g: echo_out "Thank you for using SIM." 0
+# Be sure to enclose string in quotation marks
+#
+# Values for operation types are:
+# 0 = Output to stdout and log to $SIM_LOG
+# 1 = Output only to log, $SIM_LOG
+# 2 = Output only to stdout
+##
+STR="$1"
+ECH_OPT="$2"
+
+if [ ! -f "$SIM_LOG" ]; then
+	touch $SIM_LOG
+	chmod 640 $SIM_LOG
+	ln -fs $SIM_LOG $INSTALL_PATH/logs/
+fi
+
+if [ $# -ne 2 ]; then
+	echo "zero sized string passed to echo_out() for all arguments, aborting."
+        echo "$(date +"%b %e %H:%M:%S") $PREFIX zero sized string passed to echo_out() for all arguments, aborting." >> $SIM_LOG
+	exit 1
+fi
+
+if [ ! -z "$STR" ] && [ "$ECH_OPT" -eq "0" ]; then
+	echo "$STR"
+        echo "$(date +"%b %e %H:%M:%S") $PREFIX $STR" >> $SIM_LOG
+elif [ ! -z "$STR" ] && [ "$ECH_OPT" -eq "1" ]; then
+	echo "$(date +"%b %e %H:%M:%S") $PREFIX $STR" >> $SIM_LOG
+elif [ ! -z "$STR" ] && [ "$ECH_OPT" -eq "2" ]; then
+        echo "$STR"
+elif [ -z "$STR" ]; then
+        echo "zero sized string passed to echo_out() for argument 1, aborting."
+        echo "$(date +"%b %e %H:%M:%S") $PREFIX zero sized string passed to echo_out() for argument 1, aborting." >> $SIM_LOG
+	exit 1
+fi
+}
+
+clean() {
+##
+# remove all temporary and cache files; for program exit
+##
+rm -f $PSCACHE $NSCACHE $MODCACHE $OTHCACHE $LOCK $INSTALL_PATH/internals/stat/*.stat
+}
+
+trap_clean_fin() {
+##
+# clean function for trapped CTRL+C
+##
+echo_out "user interrupt, removing temporary files." 2
+echo_out "{glob.sim} user interrupt, removing temporary files." 1
+clean
+exit 1
+}
+
+clean_fin() {
+##
+# clean function for errored/std program termination
+#
+CLOPT="$1"
+if [ "$CLOPT" == "1" ]; then
+	clean
+        exit 1
+else
+	clean
+fi
+}
+
+stat_clean() {
+##
+# stat_clean() is called for the -c switch
+##
+if [ -d "$INSTALL_PATH/internals/stat/" ]; then 
+	echo_out "clearing stat files." 2
+	echo_out "{glob.sim} clearing stat files." 1
+	rm -f $INSTALL_PATH/internals/stat/*
+else
+	echo_out "unable to clear stat files, aborting." 2
+	echo_out "{glob.sim} unable to clear stat files, aborting." 1
+	clean_fin 1
+fi
+}
+
+sanity_path() {
+##
+# Path validation function [sanity_path()], accepts 2 arguments
+# first argument is path , second is operation type.
+# e.g: sanity_path /usr/local/sim 1
+#
+# Values for operation types are:
+# 0 = standard path validation, exits with error if non-existent
+# 1 = standard path validation, log error if non-existent
+# 2 = validate path, if non-existent creat directory
+# 3 = validate path, if non-existent creat file
+# 4 = validate path, if exists delete directory
+# 5 = validate path, if exists delete file
+##
+PATH_ARG="$1"
+SAN_OPT="$2"
+
+if [ $# -ne 2 ]; then
+	echo_out "{glob.sim} invalid argument count for sanity_path(), aborting." 0
+	clean_fin 1
+elif [ -z "$PATH_ARG" ]; then
+	echo_out "{glob.sim} null string passed to sanity_path(), argument 1." 0
+	clean_fin 1
+elif [ -z "$SAN_OPT" ]; then
+        echo_out "{glob.sim} null string passed to sanity_path(), argument 2." 0
+	clean_fin 1
+fi
+
+if [ ! -d "$PATH_ARG" ] && [ ! -f "$PATH_ARG" ] && [ "$SAN_OPT" == "0" ]; then
+        echo_out "{glob.sim} $PATH_ARG not found, aborting." 0
+        clean_fin 1
+elif [ ! -d "$PATH_ARG" ] && [ ! -f "$PATH_ARG" ] && [ "$SAN_OPT" == "1" ]; then
+	echo_out "{glob.sim} $PATH_ARG not found." 1
+elif [ ! -d "$PATH_ARG" ] && [ "$SAN_OPT" == "2" ]; then
+        mkdir $PATH_ARG
+	chmod 640 $PATH_ARG
+elif [ ! -f "$PATH_ARG" ] && [ "$SAN_OPT" == "3" ]; then
+        touch $PATH_ARG
+	chmod 640 $PATH_ARG
+elif [ -d "$PATH_ARG" ] && [ "$SAN_OPT" == "4" ]; then
+	rm -rf $PATH_ARG
+elif [ -f "$PATH_ARG" ] && [ "$SAN_OPT" == "5" ]; then
+	rm -f $PATH_ARG
+fi
+}
+
+expdat() {
+##
+# Expire routine for .dat files
+##
+if [ -f "$INSTALL_PATH/internals/stat/exp.dat" ]; then
+	EXP="86400"
+	CVAL=`cat $INSTALL_PATH/internals/stat/exp.dat`
+	DIFF=$[UTIME-CVAL]
+	if [ "$DIFF" -gt "$EXP" ]; then
+		rm -f $INSTALL_PATH/internals/stat/*.dat
+		echo "$UTIME" > $INSTALL_PATH/internals/stat/exp.dat
+	fi
+else
+	echo "$UTIME" > $INSTALL_PATH/internals/stat/exp.dat
+fi
+}
+
+lcheck() {
+##
+# Maximal load check-routine; sim aborts if load is out of bounds
+##
+LOAD=`cat /proc/loadavg | tr '.' ' ' | awk '{print$1}'`
+if [ "$LOAD" -gt "$MLOAD" ]; then
+        echo "error load too high to run spri safely, aborting."
+        exit 1
+fi
+}
+
+val_lock() {
+##
+# Lock routine to prevent toe-stepping from multiple instances
+##
+if [ -f "$LOCK" ]; then
+        OVAL=`cat $LOCK`
+        DIFF=$[UTIME-OVAL]
+        if [ "$DIFF" -gt "$LOCK_TIMEOUT" ]; then
+                echo "$UTIME" > $LOCK
+                echo_out "{glob.sim} cleared stale lock file." 1
+        else
+		header
+                echo_out "{glob.sim} locked subsystem, already running ? ($LOCK is $DIFF seconds old), aborting." 2
+                exit 1
+        fi
+else
+	sanity_path $LOCK 3
+	echo "$UTIME" > $LOCK
+fi
+}
+
+cache() {
+##
+# cache ps/netstat output
+##
+sanity_path $PSCACHE 5
+sanity_path $PSCACHE 3
+sanity_path $NSCACHE 5
+sanity_path $NSCACHE 3
+nicebin=`which nice`
+if [ ! "$nicebin" == "" ]; then
+	nice -n 10 ps ax > $PSCACHE
+	nice -n 12 netstat -npl | grep LISTEN | grep "tcp" | grep -v ":::" | tr '/' ' ' | tr ':' ' ' | awk '{print $5" "$10}' > $NSCACHE
+	nice -n 12 netstat -npl | grep LISTEN | grep "tcp" | grep ":::" | tr '/' ' ' | tr ':' ' ' | awk '{print $4" "$8}' >> $NSCACHE
+else
+	ps ax > $PSCACHE
+	netstat -npl | grep LISTEN | grep "tcp" | grep -v ":::" | tr '/' ' ' | tr ':' ' ' | awk '{print $5" "$10}' > $NSCACHE
+	netstat -npl | grep LISTEN | grep "tcp" | grep ":::" | tr '/' ' ' | tr ':' ' ' | awk '{print $4" "$8}' >> $NSCACHE
+fi
+}
+
+alert() {
+##
+# Alert E-Mail function 
+##
+if [ -f "$INSTALL_PATH/internals/stat/aevg.dat" ]; then
+        EVG_VAL=`cat $INSTALL_PATH/internals/stat/aevg.dat`
+        DIFF=$[UTIME-EVG_VAL]
+        if [ ! "$DIFF" -gt "$AEVG" ]; then
+		ALERT=0
+	else
+                echo "$UTIME" > $INSTALL_PATH/internals/stat/aevg.dat
+        fi
+else
+        echo "$UTIME" > $INSTALL_PATH/internals/stat/aevg.dat
+fi
+
+if [ "$ALERT" == "1" ]; then
+	if [ -f "$INSTALL_PATH/internals/stat/main.dat" ]; then
+		MCOUNT=`cat $INSTALL_PATH/internals/stat/main.dat`
+	else
+		MCOUNT=""
+	fi
+	if [ "$MCOUNT" -gt "$EVLIMIT" ]; then
+		echo_out "{glob.sim} alert e-mail suppressed, daily e-mail limit exceeded." 1
+	else
+		echo_out "{glob.sim} dispatching alert e-mail(s) to $EMAIL." 1
+		. $ALERTF | mail -s "$SUBJ" "$EMAIL"
+	fi
+fi
+}
+
+track_event() {
+##
+# Track and record events
+##
+TRACK_VAL="$1"
+
+# Set event count for individual service
+sanity_path $INSTALL_PATH/internals/stat/$TRACK_VAL.dat 3
+TMP_VAR=`cat $INSTALL_PATH/internals/stat/$TRACK_VAL.dat | awk '{print$1}' | tail -n 1`
+sanity_path $INSTALL_PATH/internals/stat/$TRACK_VAL.dat 5
+sanity_path $INSTALL_PATH/internals/stat/$TRACK_VAL.dat 3
+if [ ! -z "$TMP_VAR" ]; then
+  TMP_VAR=$[TMP_VAR+1]
+  echo "$TMP_VAR" >> $INSTALL_PATH/internals/stat/$TRACK_VAL.dat
+else
+  TMP_VAR="0"
+  TMP_VAR=$[TMP_VAR+1]
+  echo "$TMP_VAR" >> $INSTALL_PATH/internals/stat/$TRACK_VAL.dat
+fi
+
+# Set event count total
+sanity_path $INSTALL_PATH/internals/stat/main.dat 3
+TMP_VAR=`cat $INSTALL_PATH/internals/stat/main.dat | awk '{print$1}' | tail -n 1`
+sanity_path $INSTALL_PATH/internals/stat/main.dat 5
+sanity_path $INSTALL_PATH/internals/stat/main.dat 3
+if [ ! -z "$TMP_VAR" ]; then
+   TMP_VAR=$[TMP_VAR+1]
+   echo "$TMP_VAR" >> $INSTALL_PATH/internals/stat/main.dat
+else
+   TMP_VAR="0"
+   TMP_VAR=$[TMP_VAR+1]
+   echo "$TMP_VAR" >> $INSTALL_PATH/internals/stat/main.dat
+fi
+}
+
+get_evcount() {
+EVNAME=$1
+if [ -f "$INSTALL_PATH/internals/stat/$EVNAME.dat" ]; then
+	EVCOUNT=`cat $INSTALL_PATH/internals/stat/$EVNAME.dat`
+else
+	EVCOUNT="0"
+fi
+}
+
+chkinituse() {
+	val=`cat $PSCACHE | grep $init_name | grep start`
+if [ "$val" == "" ]; then
+	val=`cat $PSCACHE | grep $init_name | grep stop`
+elif [ "$val" == "" ]; then
+	val=`cat $PSCACHE | grep $init_name | grep restart`
+fi
+while [ ! "$val" == "" ]; do
+        sleep 3
+        val=`cat $PSCACHE | grep init.d/$init_name | grep start`
+if [ "$val" == "" ]; then
+        val=`cat $PSCACHE | grep init.d/$init_name | grep stop`
+elif [ "$val" == "" ]; then
+        val=`cat $PSCACHE | grep init.d/$init_name | grep restart`
+fi
+        if [ "$ESTO" == "" ]; then
+                echo_out "{init.$nameval} another process is running an init operation on this service, delayed till complete." 1
+                ESTO="1"
+        fi
+done
+}
+
+chk_mysql_sock() {
+##
+# Missing MySQL socket function [chk_mysql_sock()]; checks for presence of mysql.sock in /tmp
+##
+if [ -e "$mysql_sock" ] && [ ! -e "$mysql_tmpsock" ]; then
+	echo_out "{init.$nameval} $mysql_tmpsock not found; relinked; cycling service." 1
+	serv_init $init_name $run_name 2
+	serv_init $init_name $run_name 1
+        ln -fs $mysql_sock $mysql_tmpsock
+fi
+}
+
+chk_url(){
+##
+# URL aware function [chk_url()] accepts 6 required arguments
+# First argument is the url protocol, this can be ftp, http, https or similar 'wget' support protocols
+# Second argument is the network port, this can often be defined as $socket_chkport
+# Third argument is the url host/domain, this can be either numeric ip or an fqdn
+# Fourth argument is the url request, this must be atleast '/'
+# Fith argument is the request return status code, this can often be "200 OK"
+# Sixth argument [optional] is the read timeout, this value is in seconds
+#
+# examples: chk_url "http" "$socket_port" "127.0.0.1" "/" "200 OK" "5"
+# 	    chk_url "http" "80" "domain.com" "/index.php" "200 OK" "10"
+##
+proto="$1"
+port="$2"
+host="$3"
+request="$4"
+chkexp="$5"
+timeout="$6"
+if [ "$timeout" == "" ]; then
+	timeout="5"
+fi
+
+if [ "$urlaware" == "1" ] && [ ! "$proto" == "" ] && [ ! "$port" == "" ] && [ ! "$host" == "" ] && [ ! "$chkexp" == "" ]; then
+        wget -t 2 -T $timeout -S $proto://$host:$port$request --output-document=/dev/null 2> $INSTALL_PATH/internals/tmp/.sim-$$
+        val=`cat $INSTALL_PATH/internals/tmp/.sim-$$ | grep -w "$chkexp"`
+	chkexp_return=`cat $INSTALL_PATH/internals/tmp/.sim-$$ | grep "HTTP/" | awk '{print$3" "$4}'`
+        if [ "$val" == "" ]; then
+        	echo_out "{init.$nameval} url-aware check: failed for $proto://$host:$port$request (returned: $chkexp_return - expected: $chkexp); assuming service offline." 1
+		if [ "$kproc" == "1" ]; then
+			killall -9 $run_name >> /dev/null 2>&1
+		fi
+	        serv_down $init_name $run_name
+        else
+		echo_out "{init.$nameval} url-aware check: passed for $proto://$host:$port$request (returned: $chkexp_return - expected: $chkexp)." 1
+        fi
+        rm -f $INSTALL_PATH/internals/tmp/.sim-$$
+fi
+}
+
+sem_clean() {
+##
+# Semaphore cleanup function [sem_clean()] used to clear out stale apache shared memory segments
+##
+sem_owner="$1"
+
+if [ ! "$run_name" == "" ] && [ "$sem_cl" == "1" ] && [ "$down" == "1" ]; then
+        for owner in `echo $sem_owner`; do
+          for clsem in `ipcs -s | grep -iw $owner | awk '{print$2}'`; do
+             ipcrm -s $clsem >> /dev/null 2>&1
+          done
+        done
+        rm -f /tmp/session_mm_*.sem
+        rm -f /tmp/sess_*
+        rm -f /tmp/_*.wrk
+	echo_out "{init.$nameval} cleared semaphore arrays." 1
+fi
+}
+
+serv_down() {
+##
+# Service down function [serv_down()], accepts 2 arguments
+# first argument is the service name as listed in /etc/rc.d/init.d (chkconfig --list)
+# second argument is runtime name, name as seen in 'ps'
+# both arguments are this function are typically passed from serv_init()
+##
+VAL_INIT="$1"
+VAL_PROC="$2"
+
+if [ "$#" -ne "2" ]; then
+        echo_out "{glob.sim} invalid argument count for serv_down(), aborting." 0
+        clean_fin 1
+fi
+
+if [ -f "$INSTALL_PATH/internals/stat/$nameval.dat" ]; then
+	SCOUNT=`cat $INSTALL_PATH/internals/stat/$nameval.dat`
+else
+	SCOUNT="0"
+fi
+if [ "$SCOUNT" -gt "$RSTLIMIT" ]; then
+	get_evcount $nameval
+	echo_out "{init.$nameval} service is offline ($EVCOUNT events); restart limit exceeded." 1
+	echo "2"  > $INSTALL_PATH/internals/stat/$nameval.stat
+else
+if [ -f "$INIT_PATH/$VAL_INIT" ]; then
+	if [ "$down_recheck" == "1" ] && [ "$dchk" == "0" ] && [ ! "$down_recheck_delay" == "" ]; then
+		dchk=$[dchk+1]
+		sleep $down_recheck_delay
+		. $modint
+	else
+        ALERT="1"
+	down="1"
+        track_event $nameval
+	get_evcount $nameval
+        echo "1"  > $INSTALL_PATH/internals/stat/$nameval.stat
+        echo_out "{init.$nameval} service is offline ($EVCOUNT events)." 1
+	if [ "$servinitopt" == "" ]; then
+		servinitopt="1"
+	elif [ "$servinitopt" == "5" ] && [ "$servinitopt_cust" == "" ]; then
+		echo_out "{init.$nameval} servinitopt=5 but servinitopt_cust not set; reverting to servinitopt=1." 1
+		servinitopt="1"
+	fi
+	if [ "$sem_cl" == "1" ]; then
+		sem_clean $sem_owner
+	fi
+        serv_init $VAL_INIT $VAL_PROC $servinitopt
+	fi
+else
+	echo "2" > $INSTALL_PATH/internals/stat/$nameval.stat
+	get_evcount $nameval
+        echo_out "{init.$nameval} service is offline ($EVCOUNT events)." 1
+ fi
+fi
+}
+
+serv_init() {
+##
+# Service init function [serv_init()], accepts 3 arguments
+# first argument is the service name as listed in /etc/rc.d/init.d (chkconfig --list)
+# second argument is runtime name, name as seen in 'ps'
+# third argument is operation type
+#
+# Values for operation types are:
+# 0 = Restart service
+# 1 = Start service
+# 2 = Stop service
+# 3 = Check status of service [proccess based check]
+# 4 = Check status of service [process based check & netstat; requires val socket_port]
+# 5 = Custom [pass the service init script a custom argument; requires val servinitopt_cust; i.e: startssl]
+#
+# Optionaly there is a 4th argument accepted, that is the init path (e.g: /etc/rc.d/init.d)
+# this argument is optional and defaults to /etc/rc.d/init.d - Purpose of this argument is
+# for systems using non-standard init paths (e.g: /usr/local/psa/rc.d) 
+##
+INIT_NAME="$1"
+RUN_NAME="$2"
+INIT_OPT="$3"
+rstopt="$servinitopt"
+
+if [ -z "$4" ]; then
+	INIT_PATH="/etc/rc.d/init.d"
+	sanity_path $INIT_PATH 0
+else
+	INIT_PATH="$4"
+	sanity_path $INIT_PATH 0
+fi
+
+if [ "$#" -lt "3" ]; then
+	echo_out "{glob.sim} invalid argument count for serv_init(), aborting." 0
+	clean_fin 1
+fi
+
+sanity_path $INIT_PATH/$INIT_NAME 1
+
+if [ -z "$RUN_NAME" ]; then
+	echo_out "{glob.sim} zero sized string passed to serv_init() for argument 2, aborting." 0
+	clean_fin 1
+elif [ -z "$INIT_OPT" ]; then
+	echo_out "{glob.sim} zero sized string passed to serv_init() for argument 3, aborting." 0
+        clean_fin 1
+fi
+
+if [ "$INIT_OPT" == "0" ]; then
+	$INIT_PATH/$INIT_NAME restart >> $INIT_LOG
+	echo_out "{init.$nameval} service has been restarted." 1
+elif [ "$INIT_OPT" == "1" ]; then
+	$INIT_PATH/$INIT_NAME start >> $INIT_LOG
+	echo_out "{init.$nameval} service has been started." 1
+elif [ "$INIT_OPT" == "2" ]; then
+	$INIT_PATH/$INIT_NAME stop >> $INIT_LOG
+	echo_out "{init.$nameval} service has been stoped." 1
+elif [ "$INIT_OPT" == "3" ]; then
+	sanity_path $PSCACHE 0
+	if [ "$proc_chkapp" == "1" ]; then
+		SERV_CHK=`cat $PSCACHE | grep -w $RUN_NAME | grep -v grep`
+	else
+		SERV_CHK=`cat $PSCACHE | grep $RUN_NAME | grep -v grep`
+	fi
+	if [ "$SERV_CHK" == "" ]; then
+	  if [ "$dchk" == "0" ]; then
+	   echo_out "{init.$nameval} service failed process check." 1
+	  fi
+	   serv_down $INIT_NAME $RUN_NAME
+	else
+	   echo "0" > $INSTALL_PATH/internals/stat/$nameval.stat
+	   echo_out "{init.$nameval} service is online." 1
+	fi
+elif [ "$INIT_OPT" == "4" ]; then
+	sanity_path $PSCACHE 0
+	sanity_path $NSCACHE 0
+        if [ "$proc_chkapp" == "1" ]; then
+                SERV_CHK=`cat $PSCACHE | grep -w $RUN_NAME | grep -v grep`
+        else
+                SERV_CHK=`cat $PSCACHE | grep $RUN_NAME | grep -v grep`
+        fi
+	if [ "$socket_port" == "" ]; then
+		echo_out "{init.$nameval} socket_port undefined in module, aborting." 1
+		clean_fin 1
+	fi
+	if [ "$socket_chkapp" = "1" ]; then
+		NET_CHK=`cat $NSCACHE | grep -w $socket_port | grep -w $RUN_NAME`
+	else
+		NET_CHK=`cat $NSCACHE | grep -w $socket_port`
+
+	fi
+        if [ "$SERV_CHK" == "" ]; then
+	   if [ "$dchk" == "0" ]; then
+	        echo_out "{init.$nameval} service failed process check." 1
+	   fi
+        	serv_down $INIT_NAME $RUN_NAME
+        else
+	  if [ "$NET_CHK" == "" ]; then
+	     if [ "$dchk" == "0" ]; then
+                  echo_out "{init.$nameval} service failed socket check." 1
+	     fi
+		  serv_down $INIT_NAME $RUN_NAME
+	  else
+		  echo "0" > $INSTALL_PATH/internals/stat/$nameval.stat
+                  echo_out "{init.$nameval} service is online." 1
+	  fi
+	fi
+elif [ "$INIT_OPT" == "5" ]; then
+        $INIT_PATH/$INIT_NAME $servinitopt_cust >> $INIT_LOG
+        echo_out "{init.$nameval} service has been started [with initopt $servinitopt_cust]." 1
+else
+	echo_out "{glob.sim} invalid string passed to serv_init() for argument 3, aborting." 0
+        clean_fin 1
+fi
+}
+
+clear_vals() {
+##
+# Clear/Null global module variables; we call this after each module execution
+# to ensure no values are mixed between modules.
+##
+init_name=""
+run_name=""
+servinitopt=""
+servinitopt_cust=""
+init_path=""
+down_recheck=""
+down_recheck_delay=""
+socket_port=""
+socket_chkapp=""
+proc_chkapp=""
+dchk="0"
+down="0"
+urlaware="0"
+sem_cl="0"
+kproc="0"
+
+}
+
+run_modules_init() {
+##
+# Module insertion routine for init modules, required format as follows:
+# line 1: #sim_modv3x
+# line 2: #enable/#disable
+#
+# Module variables as follows:
+# init_name="" [required]  name of init script (e.g: httpd) as seen in chkconfig --list (ls /etc/rc.d/init.d)
+# (values: name of init service)
+#
+# run_name="" [required] name of executable program as seen in ps (e.g: httpd)
+# (values: executable name of program; not location)
+#
+# servinitopt="" [optional] option to be used when executing init scripts during down events
+# (values: 0 = restart, 1 = start, 5 = custom init argument for down events; requires servinitopt_cust)
+#
+# proc_chkapp="" [optional] when parsing ps output; force sim to check exact-match (grep -w) for run_name string
+# (values: 0=off,1=on)
+#
+# init_path="" [optional] default /etc/rc.d/init.d, declare variable to change (e.g: /usr/local/psa/rc.d - no trailing /)
+# (values: path to init.d or related init path; no trailing /)
+#
+# down_recheck="" [optional] this forces a recheck of a given service; intended to augment control panels that often
+# (values: 0=off,1=on)       restart services and SIM may overlap with such restarts/reloads.
+#
+# down_recheck_delay="" [optional] delay value in seconds for recheck; essentialy pausing SIM for an augment period to
+# (values: seconds, 1-60)	   allow a service to reload if a 3rd party facility has given it a SIGHUP or otherwise
+#				   is working with it in some fashion.
+#
+# socket_port="" [optional] if init service is a network daemon; configure port value here (TCP/UDP) (e.g: 80)
+# (values: 1-65535 TCP or UDP port)
+#
+# socket_chkapp="" [optional] when a socket is bound the counterpart process ID is tied to an executable name; for example
+# (values: 0=off,1=on)	      doing 'netstat -npl | grep httpd' should list port 80 bound by httpd; varible socket_chkapp is
+#			      intended to validate that the executable (run_name) is bound to the defined port. 
+#
+# kproc="" [optional]  send a killall -9 $run_name to terminate all processes associated with a module; before init script
+# (values: 0=off,1=on) is executed.
+#
+# urlaware="" [optional] check the status of a URL to ensure web server is responding with data, and that return status code
+# (values: 0=off,1=on)   is as defined. You must defined the chk_url() function in order to use this feature, 
+#			 refer to header comments for chk_url().
+#
+# sem_cl="" [optional] clear the semaphore arrays for apache to ensure allocated memory segments are clean for web server to
+# (values: 0=off,1=on) properly reload.
+#
+# Then a call must be made to the serv_init() function; refer to
+# the comment header for serv_init() and use default init modules
+# as example guides.
+##
+for i in `ls $INSTALL_PATH/$PATH_MODINIT`; do
+	modint="$INSTALL_PATH/$PATH_MODINIT/$i"
+	if [ -f "$modint" ]; then
+		valmod=`cat $modint | grep -w "#sim_modv3x"`
+		if [ "$valmod" == "" ]; then
+			echo_out "{glob.sim} invalid module at $modint, ignoring." 1
+		else
+                        nameval=`echo $i | tr '.' ' ' | awk '{print$1}'`
+			valen=`cat $modint | grep -v "#sim_modv3x" | grep "#enable"`
+			valen2=`cat $MCNF | grep -v "#" | grep -w "init.$nameval" | grep -w on`
+			akdup=`cat $MCNF | grep -v "#" | grep -v off | grep -w "init.$nameval" | grep -w on | tr '.' ' ' | awk '{print$2}'`
+			if [ ! "$valen" == "" ] && [ "$akdup" == "$nameval" ]; then
+				clear_vals
+				INIT_COUNT=$[INIT_COUNT+1]
+				. $modint
+			elif [ ! "$valen2" == "" ] && [ "$akdup" == "$nameval" ]; then
+				clear_vals
+				INIT_COUNT=$[INIT_COUNT+1]
+				. $modint
+			fi		
+		fi 	
+	fi 
+done
+}
+
+run_modules_sys() {
+for i in `ls $INSTALL_PATH/$PATH_MODSYS`; do
+	modsys="$INSTALL_PATH/$PATH_MODSYS/$i"
+	if [ -f "$modsys" ]; then
+		valmod=`cat $modsys | grep -w "#sim_modv3x"`
+		if [ "$valmod" == "" ]; then
+			echo_out "{glob.sim} invalid module at $modsys, ignoring." 1
+		else
+			nameval=`echo $i | tr '.' ' ' | awk '{print$1}'`
+                        valen=`cat $modint | grep -v "#sim_modv3x" | grep "#enable"`
+                        valen2=`cat $MCNF | grep -v "#" | grep -w "sys.$nameval" | grep -w on`
+		        akdup=`cat $MCNF | grep -v "#" | grep -v off | grep -w "sys.$nameval" | grep -w on | tr '.' ' ' | awk '{print$2}'`
+                        if [ ! "$valen" == "" ]; then
+                                clear_vals
+                                SYS_COUNT=$[SYS_COUNT+1]
+                                . $modsys
+                        elif [ ! "$valen2" == "" ]; then
+                                clear_vals
+                                SYS_COUNT=$[SYS_COUNT+1]
+                                . $modsys
+                        fi
+		fi
+	fi
+done
+}
+
+mvtocol() {
+##
+# Move colum positioning for output
+##
+COL="$1"
+	if [ "$COL" -gt "0" ]; then
+		echo -en \\033[${COL}G
+	fi
+}
+
+stgen() {
+##
+# Status generation and output routine [-s]
+##
+echo_out "- Events Summary" 2
+if [ -f "$INSTALL_PATH/internals/stat/main.dat" ]; then
+	TO_EV=`cat $INSTALL_PATH/internals/stat/main.dat | awk '{print$1}' | tail -n 1`
+	if [ ! "$TO_EV" -eq "0" ] || [ ! "$INIT_COUNT" -eq "0" ] || [ ! "$SYS_COUNT" -eq "0"]; then 
+		MOD_COUNT=$[INIT_COUNT+SYS_COUNT]
+		AVG_EV=$[TO_EV/MOD_COUNT]
+	else
+		AVG_EV=0
+	fi
+	echo_out "daily total:   $TO_EV" 2
+	echo_out "daily average: $AVG_EV" 2
+else
+	echo_out "no events." 2
+fi
+
+echo && echo_out "- Module Status Summary:" 2
+if [ "$INIT_COUNT" == "0" ] && [ "$SYS_COUNT" == "0" ]; then
+	echo_out "no modules configured." 2
+fi
+if [ ! "$INIT_COUNT" == "0" ]; then
+	sanity_path $SIM_LOG 0
+	val=`ls $INSTALL_PATH/$PATH_MODINIT`
+	for i in `echo $val | tr '.' ' ' | tr ' ' '\n' | grep -v mod`; do
+		if [ -f "$INSTALL_PATH/internals/stat/$i.stat" ]; then
+			stat=`cat $INSTALL_PATH/internals/stat/$i.stat`
+		fi
+		get_evcount $i
+		if [ "$stat" == "0" ]; then
+			stat="online"
+		elif [ "$stat" == 1 ]; then
+			stat="restarted"
+		elif [ "$stat" == "2" ]; then
+			stat="fatal error"
+		fi
+		if [ ! "$stat" == "" ]; then
+			echo -n "init.$i"
+			mvtocol 20
+			echo -n "$stat ($EVCOUNT events)" && echo
+			stat=""
+			evc=""
+		fi
+	done
+fi
+
+if [ ! "$SYS_COUNT" == "0" ]; then
+        sanity_path $SIM_LOG 0
+        val=`ls $INSTALL_PATH/$PATH_MODSYS/ | grep ".mod"`
+        for i in `echo $val | tr '.' ' ' | tr ' ' '\n' | grep -v mod`; do
+                if [ -f "$INSTALL_PATH/internals/stat/$i.stat" ]; then
+			get_evcount $i
+                        echo -n "sys.$i"
+                        mvtocol 20
+			if [ "$EVCOUNT" == "0" ]; then
+        	                echo -n "ok ($EVCOUNT events)" && echo
+			else
+				echo -n "notice ($EVCOUNT events)" && echo
+				cat $INSTALL_PATH/internals/stat/$i.stat
+			fi
+                        stat=""
+                        evc=""
+		fi
+	done
+fi
+}

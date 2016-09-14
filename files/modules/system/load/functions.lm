@@ -1,0 +1,39 @@
+lm_spri() {
+if [ -f "/usr/local/sbin/spri" ]; then
+        echo_out "{sys.load} spri installed at /usr/local/sbin/spri; executing." 1
+	/usr/local/sbin/spri -q >> /dev/null 2>&1
+else
+        echo_out "{sys.load} spri not found at /usr/local/sbin/spri; unable to execute." 1
+fi
+}
+
+lm_prm() {
+if [ -f "/usr/local/sbin/prm" ]; then
+        echo_out "{sys.load} prm installed at /usr/local/sbin/prm; executing." 1
+	/usr/local/sbin/prm -q >> /dev/null 2>&1
+else
+        echo_out "{sys.load} prm not found at /usr/local/sbin/prm; unable to execute." 1
+fi
+}
+
+rboot() {
+RST_PROG=`cat $INSTALL_PATH/internals/stat/rstp.stat`
+if [ ! "$RST_PROG" == "1" ] && [ "LM_RST" == "1" ]; then
+	echo "1" > $INSTALL_PATH/internals/stat/rstp.stat
+        echo_out "{sys.load} shutdown in progress ($shutdown -rf now)." 1
+	$shutdown -rf now
+fi
+}
+
+lact() {
+case "$1" in
+warn)
+	lm_spri
+	;;
+caut)
+	lm_prm
+	;;
+crit)
+	rboot
+esac
+}

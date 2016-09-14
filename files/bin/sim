@@ -1,0 +1,153 @@
+#!/bin/sh
+# 
+# SIM 3.0 [sim@r-fx.org]
+###
+# Copyright (C) 1999-2005, R-fx Networks <sim@r-fx.org>
+# Copyright (C) 2005, Ryan MacDonald <ryan@r-fx.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+###
+#
+# Installation path
+INSTALL_PATH="/usr/local/sim"
+# Location of main config file
+CNF="$INSTALL_PATH/config/conf.sim"
+# Version
+VER="3.0"
+
+header() {
+	echo "SIM version $VER <sim@r-fx.org>"
+	echo "Copyright (C) 1999-2005, R-fx Networks"
+	echo "              2005, Ryan MacDonald" 
+	echo "This program may be freely redistributed under the terms of the GNU GPL"
+	echo ""
+}
+
+## Does our config file exist, if not abort
+if [ -f "$CNF" ]; then
+        . $CNF
+else
+	header
+        echo "Could not find $CNF, exiting."
+        exit 1
+fi
+
+## Load our function file, if it exists (it better!)
+if [ -f "$FUNC_FILE" ]; then
+	. $FUNC_FILE
+else
+	header
+        echo "Could not find \$FUNC_FILE, exiting."
+        exit 1
+fi
+
+## Run our .dat experation routine; clear .dat files if
+## greater than 1 day old (86400 seconds)
+expdat
+
+## Setup our version file
+if [ ! -f "$INSTALL_PATH/version" ]; then
+	touch $INSTALL_PATH/version
+	chmod 640 $INSTALL_PATH/version
+	echo "$VER" >> $INSTALL_PATH/version
+fi
+
+case "$1" in
+-q|--quiet)
+	trap trap_clean_fin 2
+	lcheck
+	val_lock
+	cache
+	run_modules_init
+	run_modules_sys
+	alert
+	clean_fin
+        ;;
+-s|--status)
+        trap trap_clean_fin 2
+	header
+        lcheck
+        val_lock
+	cache
+        run_modules_init
+	run_modules_sys
+	stgen
+	alert
+        clean_fin
+        ;;
+-l|--log)
+	header
+	if [ ! -f "$SIM_LOG" ]; then
+        	touch $SIM_LOG
+        	chmod 640 $SIM_LOG
+        	ln -fs $SIM_LOG $INSTALL_PATH/logs/
+	fi
+	tac $SIM_LOG | more
+	;;
+-j|--cron)
+	header
+	cjon=""
+	CJV=`cat /etc/crontab | grep -w "/usr/local/sim/sim -q"`
+	if [ ! "$CJV" == "" ]; then
+		echo_out "deprecated SIM 2.x cron entry in /etc/crontab; please remove before continuing." 2
+	else
+        if [ ! "$2" == "" ]; then
+        case "$2" in
+        on|On|ON)
+                cjon=1
+        ;;
+        off|Off|OFF)
+                cjon=0
+        esac
+        fi
+
+	if [ "$cjon" == "" ]; then
+	 if [ -f "/etc/cron.d/sim.cron" ]; then
+		rm -f /etc/cron.d/sim.cron
+		echo_out "removed cronjob." 0
+	 else
+		ln -fs $CRON /etc/cron.d/
+		chmod 644 /etc/cron.d/sim.cron $CRON
+		echo_out "added cronjob." 0
+	 fi
+	else
+		if [ "$cjon" == "1" ]; then
+			ln -fs $CRON /etc/cron.d/
+	                chmod 644 /etc/cron.d/sim.cron $CRON
+                	echo_out "added cronjob." 0
+		elif [ "$cjon" == "0" ]; then
+        	        rm -f /etc/cron.d/sim.cron
+	                echo_out "removed cronjob." 0
+		fi
+	fi
+	fi
+	;;
+-c|--clear)
+	header
+        lcheck
+        val_lock
+	stat_clean
+	clean_fin
+        ;;
+*)
+	header 1
+	echo "usage $0 [OPTION]"
+	echo "-s, --status           Standard operation; display status to stdout"
+	echo "-q, --quiet            Standard operation; status supressed"
+	echo "-l, --log              Display log file [sim_log]"
+	echo "-j, --cron [on|off]    Toggle on or off cronjob"
+	echo "-c, --clear            Clear stat files; reset events"
+esac
+exit 0

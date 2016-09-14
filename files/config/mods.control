@@ -1,0 +1,74 @@
+# SIM 3.0 [sim@r-fx.org]
+###
+# Copyright (C) 1999-2005, R-fx Networks <sim@r-fx.org>
+# Copyright (C) 2005, Ryan MacDonald <ryan@r-fx.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+###
+# Module insertion control list
+##
+# This is an inserstion control file for SIM (3x) modules,
+# All modules defined in this file override the in-module
+# enable/disable option. It is not required to load a module
+# via the control list but rather a central medium for doing so.
+##
+# Format: 
+# [sys/init].module [on/off]
+# layer.module state
+#
+# example: 
+# init.httpd on
+# sys.load on
+##
+
+sys.disk off
+sys.load off
+#
+# known false-positive issues with network module;
+# on some systems, nature of bug is not fatal.
+sys.network off
+#
+init.arpwatch off
+init.cpanel off
+init.courier off
+init.dovecot off
+init.exim off
+init.httpd off
+init.mailmanctl off
+init.mailscanner off
+init.mrtg off
+init.mysqld off
+init.named off
+init.ntop off
+init.ocwhttpd off
+init.poprelay off
+init.postgresql off
+init.proftpd off
+init.psa off
+init.pure-ftpd off
+init.saslauthd off
+init.sendmail off
+init.smartd off
+init.snmpd off
+init.snortd off
+init.spamd off
+init.squid off
+init.sshd off
+init.syslog-ng off
+init.syslog off
+init.urchin4 off
+init.vsftpd off
+init.webmin off
+init.xinetd off
